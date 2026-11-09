@@ -1,0 +1,22 @@
+{
+  "_help": "Activities shown under 'Tonight' in the resort map. Instructions: SCHEDULE.md. Times are resort time, 24-hour (21:30). Times before 05:00 count as the night before. venue = an id from the venue list in SCHEDULE.md.",
+  "updated": "Nov 9",
+  "stay_until": "2026-11-13",
+
+  "every_day": [
+    {"time": "09:30", "title": "Bike tour", "venue": "c-1", "note": "Meet at the Sports Area. Ext. 13710"},
+    {"time": "16:00", "end": "04:00", "title": "Casino", "venue": "c-12", "note": "Not included"},
+    {"time": "19:00", "end": "00:00", "title": "Karaoke", "venue": "c-13"},
+    {"time": "20:30", "end": "23:30", "title": "Village evening", "short": "Village", "venue": "c-10", "note": "Shops & local products (not included)"},
+    {"time": "21:00", "end": "23:00", "title": "Night show", "short": "Show", "venue": "c-15", "note": "Theater bar 21:00–23:00. Exact show time is on the entertainment panels"},
+    {"time": "00:00", "end": "02:00", "title": "La Buena Barra Disco", "short": "Disco", "venue": "c-10", "note": "18+, not included. In the Village area (not marked on the hotel map)"}
+  ],
+
+  "days": {
+    "2026-11-09": [],
+    "2026-11-10": [],
+    "2026-11-11": [],
+    "2026-11-12": [],
+    "2026-11-13": []
+  }
+}
