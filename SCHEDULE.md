@@ -17,7 +17,12 @@ The **🌙 Tonight** button in the map reads `schedule.json` in this folder. Edi
 3. **Daily regulars** are in `"every_day"` and show every day automatically. To change one for a single day, add a day item with the **same title** (e.g. `{"time": "21:30", "title": "Night show", "venue": "c-15", "note": "Tonight: Grease"}`). It replaces that day's regular. To drop one for a day: `{"title": "Bike tour", "cancelled": true}`.
 4. Set `"updated"` to today's date, e.g. `"Nov 10"`.
 5. Check: `python3 -I check_schedule.py`. It lists each day as the app will show it and stops with an error if a time or venue is wrong.
-6. Publish: `git add schedule.json && git commit -m "Schedule for Nov 10" && git push`. The live page updates within about a minute.
+6. Publish from this folder:
+   ```
+   git add schedule.json && git commit -m "Schedule for Nov 10"
+   git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push origin main
+   ```
+   (A plain `git push` fails on this Mac because the saved git login is a different GitHub account. The command above uses the `lmsnyri` login from the GitHub CLI.) The live page updates within a minute or two. Check it at https://lmsnyri.github.io/resort-map/schedule.json.
 
 Only places in the purple (Aquamarine), yellow (Punta Cana) and green (Turquesa) sections and the common areas are allowed. Activities at other hotels (pink Legend, red Ambar, teal Esmeralda), such as the Oniria or Matum theaters, aren't included, so leave them out.
 
