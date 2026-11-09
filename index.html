@@ -216,16 +216,26 @@ function routeTo(start, T, pl){ // returns {meters, coords[], tail[]}
 // ---------- hours (resort time = America/Santo_Domingo, UTC-4) ----------
 function nowMin(){ const s=new Date().toLocaleTimeString('en-GB',{timeZone:'America/Santo_Domingo',hour12:false,hour:'2-digit',minute:'2-digit'}); const [h,m]=s.split(':').map(Number); return (h%24)*60+m; }
 const toMin = s => { const [h,m]=s.split(':').map(Number); return h*60+m; };
+// 12-hour clock for everything shown on screen: 3 PM, 9:30 PM, 12 AM (midnight)
+const t12p = m => { m = ((m % 1440) + 1440) % 1440; const h = Math.floor(m/60), mm = m % 60; return [`${h%12||12}${mm ? ':'+String(mm).padStart(2,'0') : ''}`, h < 12 ? 'AM' : 'PM']; };
+const t12 = m => t12p(m).join(' ');
+const t12s = s => t12(toMin(s));
+const t12range = (a, b) => { const [x, xp] = t12p(a), [y, yp] = t12p(b); return xp === yp ? `${x}–${y} ${yp}` : `${x} ${xp}–${y} ${yp}`; };
+// rewrites 24-hour times inside free text (notes from the data / schedule.json): "Snacks 10:30–18:30" → "Snacks 10:30 AM–6:30 PM"
+const fixTimes = str => String(str)
+  .replace(/\b([01]?\d|2[0-4]):([0-5]\d)\s*[–-]\s*([01]?\d|2[0-4]):([0-5]\d)\b/g, (_, a, b, c, d) => t12range(+a*60 + +b, +c*60 + +d))
+  .replace(/\b([01]?\d|2[0-4]):([0-5]\d)\b(?!\s*[AP]M)/g, (_, h, m) => t12(+h*60 + +m))
+  .replace(/\b(\d{1,2}(?::\d\d)?) ?(am|pm)\b/g, (_, t, p) => `${t} ${p.toUpperCase()}`);
 function status(pl){
   if (!pl.hours) return null;
   const t=nowMin(); let next=null;
   for (const [a,b,lbl] of pl.hours){ const A=toMin(a), B=toMin(b);
     const open = B>A ? (t>=A && t<B) : (t>=A || t<B);
-    if (open) return {open:true, txt:`Open${lbl?' for '+lbl.toLowerCase():''} until ${b}`};
+    if (open) return {open:true, txt:`Open${lbl?' for '+lbl.toLowerCase():''} until ${t12s(b)}`};
     const until=(A-t+1440)%1440; if(!next||until<next.until) next={until,a,lbl}; }
-  return {open:false, txt:`Closed · opens ${next.a}${next.lbl?' ('+next.lbl.toLowerCase()+')':''}`};
+  return {open:false, txt:`Closed · opens ${t12s(next.a)}${next.lbl?' ('+next.lbl.toLowerCase()+')':''}`};
 }
-const hoursText = pl => pl.hours ? pl.hours.map(([a,b,l])=>(l?l+' ':'')+a+'–'+b).join(' · ') : '';
+const hoursText = pl => pl.hours ? pl.hours.map(([a,b,l])=>(l?l+' ':'')+t12range(toMin(a),toMin(b))).join(' · ') : '';
 
 // ---------- map ----------
 const bounds = L.latLngBounds(D.overlay.bounds);
@@ -339,11 +349,11 @@ function homeSheet(){
     ${tonightTeaser()}
     <div class="hint">Tap a category or search. Every match lights up and I'll route you to the nearest one.
     Only places in your package are shown: <span class="tag" style="background:var(--aqua)">Aquamarine</span><span class="tag" style="background:var(--pc)">Punta Cana</span><span class="tag" style="background:var(--tq)">Turquesa</span><span class="tag" style="background:var(--common)">Common</span></div>
-    <div class="hint">Buffets ${BUF} · Pool & beach bars 10:00–17:30 · Lobby bars 10:00–23:00 · Towels 9:00–18:00</div>
+    <div class="hint">Buffets ${BUF} · Pool & beach bars 10 AM–5:30 PM · Lobby bars 10 AM–11 PM · Towels 9 AM–6 PM</div>
     ${installHint()}`, true);
   const tb = $('#tnGo'); if (tb) tb.onclick = () => tonightSheet();
 }
-const BUF = 'breakfast 7:00–10:30, lunch 12:30–15:00, dinner 18:30–22:00';
+const BUF = 'breakfast 7–10:30 AM, lunch 12:30–3 PM, dinner 6:30–10 PM';
 function installHint(){
   const standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
   if (standalone) return '';
@@ -452,13 +462,13 @@ function showPlace(pl, nav=false){
   const s = status(pl), mins = Math.max(1, Math.round(r.meters/WALK_M_PER_MIN));
   const arrived = !st.home && r.meters < 20;
   setSheet(`${nav ? `<div class="navhead">${arrived ? '🎉 You have arrived' : esc(steps(r,pl)[0].replace(/<[^>]+>/g,''))}<small>${mins} min · ${Math.round(r.meters)} m to ${esc(pl.name)}</small></div>` : ''}
-    ${A ? `<div class="actbox">🌙 <b>${esc(A.title)}</b> · ${esc(actTimeText(A))}<small>${esc(actState(A, actCtx.ds).txt)}${A.note?' · '+esc(A.note):''}</small></div>` : ''}
+    ${A ? `<div class="actbox">🌙 <b>${esc(A.title)}</b> · ${esc(actTimeText(A))}<small>${esc(actState(A, actCtx.ds).txt)}${A.note?' · '+esc(fixTimes(A.note)):''}</small></div>` : ''}
     <h2>${esc(pl.name)}</h2>
     <div class="sub"><span class="tag" style="background:${SEC[pl.sec].h}">${SEC[pl.sec].n}</span>
       ${s?`<span class="${s.open?'open':'closed'}">${esc(s.txt)}</span>`:''}</div>
     ${pl.hours?`<div class="hint">Hours: ${esc(hoursText(pl))}</div>`:''}
     <div class="hint"><b>${mins} min walk</b> · ${Math.round(r.meters)} m from ${st.home?'your room (Bldg 80)':'your location'}</div>
-    ${pl.note?`<div class="note">${esc(pl.note)}</div>`:''}
+    ${pl.note?`<div class="note">${esc(fixTimes(pl.note))}</div>`:''}
     <div class="btns">
       ${pl===HOME ? `<button class="btn" id="setRoom">Set room #</button>` : ''}
       ${nav ? `<button class="btn" id="stopNav">End directions</button>` : `<button class="btn primary" id="goNav">▶ Start directions</button>`}
@@ -495,8 +505,6 @@ function resortNow(){
 }
 const dayName = (ds, long) => new Date(ds+'T12:00:00Z').toLocaleDateString('en-US',{timeZone:'UTC',weekday:long?'long':'short',month:'short',day:'numeric'});
 const t2m = s => { const m = String(s||'').trim().match(/^(\d{1,2})[:.](\d{2})$/); return m && +m[1] < 24 && +m[2] < 60 ? (+m[1])*60 + +m[2] : null; };
-const hhmm = m => `${String(Math.floor(m/60)%24).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
-const ampm = m => { const h = Math.floor(m/60)%24, mm = m%60; return !h && !mm ? 'midnight' : h === 12 && !mm ? 'noon' : `${h%12||12}${mm?':'+String(mm).padStart(2,'0'):''} ${h<12?'am':'pm'}`; };
 function venueOf(v){ // null = no venue given; undefined = not one of your places (activity is hidden)
   if (!v) return null; if (PLACE_BY_ID.has(v)) return PLACE_BY_ID.get(v);
   const s = String(v).trim().toLowerCase(); return D.places.find(p => p.name.toLowerCase() === s);
@@ -519,20 +527,20 @@ function actsFor(ds){
   }
   return out.sort((x,y) => x.s - y.s);
 }
-const actTimeText = a => a.e != null ? `${hhmm(a.s)}–${hhmm(a.e)}` : hhmm(a.s);
+const actTimeText = a => a.e != null ? t12range(a.s, a.e) : t12(a.s);
 function actState(a, ds){
   const now = resortNow();
-  if (ds !== now.date) return ds > now.date ? {k:'later', txt: `${dayName(ds,true)} at ${ampm(a.s)}`} : {k:'ended', txt:'Ended'};
+  if (ds !== now.date) return ds > now.date ? {k:'later', txt: `${dayName(ds,true)} at ${t12(a.s)}`} : {k:'ended', txt:'Ended'};
   const t = now.min, end = a.e ?? a.s + 60;
-  if (t >= a.s && t < end) return {k:'now', txt: a.e != null ? `On now · until ${hhmm(a.e)}` : `Started ${t-a.s} min ago`};
-  if (t < a.s) { const d = a.s - t; return {k:'soon', txt: d < 60 ? `Starts in ${d} min` : d < 180 ? `Starts in ${Math.floor(d/60)} h ${d%60 ? d%60+' min' : ''}`.trim() : `Starts at ${ampm(a.s)}`}; }
+  if (t >= a.s && t < end) return {k:'now', txt: a.e != null ? `On now · until ${t12(a.e)}` : `Started ${t-a.s} min ago`};
+  if (t < a.s) { const d = a.s - t; return {k:'soon', txt: d < 60 ? `Starts in ${d} min` : d < 180 ? `Starts in ${Math.floor(d/60)} h ${d%60 ? d%60+' min' : ''}`.trim() : `Starts at ${t12(a.s)}`}; }
   return {k:'ended', txt:'Ended'};
 }
 function tonightTeaser(){
   const now = resortNow(), acts = actsFor(now.date).map(a => ({a, st: actState(a, now.date)})).filter(x => x.st.k !== 'ended');
   if (!acts.length) return '';
   const on = acts.filter(x => x.st.k === 'now').sort((x,y) => y.a.s - x.a.s), nx = acts.find(x => x.st.k === 'soon');
-  const bits = [...on.slice(0,2).map(x => `<b>${esc(x.a.title)}</b> on now`), ...(nx ? [`next: <b>${esc(nx.a.title)}</b> ${hhmm(nx.a.s)}`] : [])];
+  const bits = [...on.slice(0,2).map(x => `<b>${esc(x.a.title)}</b> on now`), ...(nx ? [`next: <b>${esc(nx.a.title)}</b> ${t12(nx.a.s)}`] : [])];
   return `<div class="tnote">🌙 <span>${bits.join(' · ')}</span><button id="tnGo">Tonight</button></div>`;
 }
 function tonightSheet(ds, refresh=false){
@@ -554,17 +562,17 @@ function tonightSheet(ds, refresh=false){
     let key = [...byVenue.keys()].find(p => dist(p.ll, x.a.pl.ll) < 90) || x.a.pl;
     if (!byVenue.has(key)) byVenue.set(key, []); byVenue.get(key).push(x); });
   byVenue.forEach((xs, pl) => {
-    const lines = xs.slice(0,3).map(x => `<div>${hhmm(x.a.s)} ${esc(x.a.short || (x.a.title.length > 16 ? x.a.title.slice(0,15)+'…' : x.a.title))}</div>`).join('') + (xs.length > 3 ? `<div>+${xs.length-3} more</div>` : '');
+    const lines = xs.slice(0,3).map(x => `<div>${t12(x.a.s)} ${esc(x.a.short || (x.a.title.length > 16 ? x.a.title.slice(0,15)+'…' : x.a.title))}</div>`).join('') + (xs.length > 3 ? `<div>+${xs.length-3} more</div>` : '');
     const at = xs.map(x => x.a.pl).reduce((m, p) => p.ll[1] > m.ll[1] ? p : m);   // label sits right of the eastmost pin
     L.marker(at.ll, {icon: L.divIcon({className:'', iconSize:null, iconAnchor:[-24,10], html:`<div class="actlbl ${xs.some(x=>x.st.k==='now')?'live':''}">${lines}</div>`}), zIndexOffset:400})
       .on('click', () => xs.length > 1 ? null : openAct(xs[0].a, ds)).addTo(actLabels);
   });
   const row = (x, i) => { const {a, st: s, r} = x;
     const badge = s.k === 'now' ? '<span class="badge">ON NOW</span>' : (isToday && i === nextIdx) ? '<span class="badge next">NEXT</span>' : '';
-    return `<div class="row act ${s.k==='ended'?'past':''}" data-i="${acts.indexOf(x)}"><div class="time">${hhmm(a.s)}<small>${ampm(a.s)}</small></div>
+    return `<div class="row act ${s.k==='ended'?'past':''}" data-i="${acts.indexOf(x)}"><div class="time">${t12p(a.s)[0]}<small>${t12p(a.s)[1]}</small></div>
       <div class="main"><div class="name">${badge}${esc(a.title)}</div>
       <div class="sub">${a.pl ? `<span class="tag" style="background:${SEC[a.pl.sec].h}">${SEC[a.pl.sec].n}</span>${esc(a.pl.name)}` : esc(a.where || 'Location: see the entertainment panel')}</div>
-      <div class="sub">${isToday ? `<span class="${s.k==='now'?'open':''}">${esc(s.txt)}</span>` : ''}${a.e!=null && !(isToday && s.k==='now') ? `${isToday?' · ':''}${hhmm(a.s)}–${hhmm(a.e)}` : ''}${a.note?' · '+esc(a.note):''}</div></div>
+      <div class="sub">${isToday ? `<span class="${s.k==='now'?'open':''}">${esc(s.txt)}</span>` : ''}${a.e!=null && !(isToday && s.k==='now') ? `${isToday?' · ':''}${t12range(a.s, a.e)}` : ''}${a.note?' · '+esc(fixTimes(a.note)):''}</div></div>
       ${r ? `<div class="walk">${Math.max(1,Math.round(r.meters/WALK_M_PER_MIN))} min<small>${Math.round(r.meters)} m</small></div>` : ''}</div>`; };
   const title = isToday ? (now.min >= 16*60 ? 'Tonight' : 'Today') : dayName(ds, true);
   const sc = refresh ? body.scrollTop : 0;
@@ -583,7 +591,7 @@ function tonightSheet(ds, refresh=false){
   if (!refresh) fitTo([...(st.ll ? [st.ll] : []), ...tonightVenues.map(p => p.ll), D.home.ll]);
 }
 function openAct(a, ds){
-  if (!a.pl) return alert(`${a.title} · ${actTimeText(a)}\n${a.where || 'Location: see the entertainment panel.'}${a.note ? '\n'+a.note : ''}`);
+  if (!a.pl) return alert(`${a.title} · ${actTimeText(a)}\n${a.where || 'Location: see the entertainment panel.'}${a.note ? '\n'+fixTimes(a.note) : ''}`);
   actCtx = {a, ds}; showPlace(a.pl);
 }
 function refreshTonight(){
