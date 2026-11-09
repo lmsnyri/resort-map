@@ -1,5 +1,5 @@
 // Offline support: app shell is cached; map tiles you have viewed are cached as you browse.
-const SHELL = 'shell-20261109140642', TILES = 'tiles-v1';
+const SHELL = 'shell-20261109140946', TILES = 'tiles-v1';
 const ASSETS = ['./', 'index.html', 'schedule.json', 'manifest.json', 'icon-180.png', 'icon-192.png', 'icon-512.png',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
   'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png'];

@@ -417,6 +417,8 @@ function dragMove(y, e){
   if (!drag) return;
   const dy = y - drag.y0;
   if (!drag.decided) {
+    // iOS commits to its own scroll/bounce on the first un-prevented move, so claim a pull-down at the top right away
+    if (drag.inBody && sState === 'full' && body.scrollTop <= 0 && dy > 0 && e.cancelable) e.preventDefault();
     if (Math.abs(dy) < 8) return;
     drag.decided = true;
     drag.on = !(drag.inBody && sState === 'full' && (dy < 0 || body.scrollTop > 0));
